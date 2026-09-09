@@ -195,8 +195,8 @@ public Action Shavit_OnTeleport(int client, int index, int target)
 {
 	g_iCmdNum[client] = 0;
 
-	int total = Shavit_GetTotalCheckpoints(client);
-	if(index < 0 || index >= total)
+	int total = Shavit_GetTotalCheckpoints(target);
+	if(index < 1 || index > total)
 	{
 		return Plugin_Continue;
 	}
