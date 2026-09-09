@@ -103,6 +103,7 @@ public void BhopStat_TickForward(int client, int buttons, float vel[3], float an
 {
 	Trainer_Tick(client, speed, inbhop, gain, jss);
 	PreStrafeTrainer_Tick(client, speed, inbhop);
+	Speedometer_Tick(client, speed);
 }
 
 public void BhopStat_FirstJumpForward(int client, int speed)

@@ -1,7 +1,13 @@
 #define SPEED_UPDATE_INTERVAL 10
 
 static float g_fCurrentSpeed[MAXPLAYERS + 1];
+static float g_fTickSpeed[MAXPLAYERS + 1];
 static int g_iTickNumber;
+
+void Speedometer_Tick(int client, float speed)
+{
+	g_fTickSpeed[client] = speed;
+}
 
 void Speedometer_GameTick()
 {
@@ -26,12 +32,8 @@ void Speedometer_GameTick()
 			continue;
 		}
 
-		float vel[3];
-		GetEntPropVector(i, Prop_Data, "m_vecAbsVelocity", vel);
-		vel[2] = 0.0;
-
 		float temp = g_fCurrentSpeed[i];
-		g_fCurrentSpeed[i] = GetVectorLength(vel);
+		g_fCurrentSpeed[i] = IsPlayerAlive(i) ? g_fTickSpeed[i] : 0.0;
 
 		int speedDelta = RoundToFloor(g_fCurrentSpeed[i] - temp);
 
