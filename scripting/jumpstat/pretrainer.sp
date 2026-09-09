@@ -22,7 +22,7 @@ void PreStrafeTrainer_Tick(int client, float speedy, bool inbhop)
 
 	g_iTickNumber = 0;
 	
-	if((GetEntityFlags(client) & FL_ONGROUND) && !inbhop)
+	if(!inbhop)
 	{
 		g_fPreCurrentSpeed[client] = speedy;
 	}
