@@ -5,7 +5,6 @@ UserMsg g_hCenterTextId = view_as<UserMsg>(-1);
 static int g_iCmdNum[MAXPLAYERS + 1];
 static int g_iLastTurnDir[MAXPLAYERS + 1];
 static int g_iLastButtons[MAXPLAYERS + 1];
-static float g_fLastYaw[MAXPLAYERS + 1];
 static bool g_bUpdateDelayed[MAXPLAYERS + 1];
 static int g_iTickDelay;
 
@@ -19,7 +18,7 @@ void ShowKeys_Start()
 	g_iTickDelay = RoundToFloor(BgsTickRate() * 0.03);
 }
 
-void ShowKeys_Tick(int client, int buttons, float yaw)
+void ShowKeys_Tick(int client, int buttons, float yawDiff)
 {
 	if(!g_hEnabledShowkeys.BoolValue)
 	{
@@ -27,17 +26,6 @@ void ShowKeys_Tick(int client, int buttons, float yaw)
 	}
 
 	g_iCmdNum[client]++;
-
-	int realButtons = buttons;
-	float yawDiff = NormalizeAngle(yaw - g_fLastYaw[client]);
-
-	if(g_bShavitReplayLoaded)
-	{
-		if(Shavit_IsReplayEntity(client))
-		{
-			realButtons = Shavit_GetReplayButtons(client, yawDiff);
-		}
-	}
 
 	int turnDir = TURNDIR_NONE;
 
@@ -52,7 +40,7 @@ void ShowKeys_Tick(int client, int buttons, float yaw)
 
 	bool updateThisTick = false;
 
-	if(g_bUpdateDelayed[client] || turnDir != g_iLastTurnDir[client] || realButtons != g_iLastButtons[client] || g_iCmdNum[client] % MIN_UPDATE_RATE == 0)
+	if(g_bUpdateDelayed[client] || turnDir != g_iLastTurnDir[client] || buttons != g_iLastButtons[client] || g_iCmdNum[client] % MIN_UPDATE_RATE == 0)
 	{
 		updateThisTick = true;
 	}
@@ -63,8 +51,7 @@ void ShowKeys_Tick(int client, int buttons, float yaw)
 		updateThisTick = false;
 	}
 
-	g_fLastYaw[client] = yaw;
-	g_iLastButtons[client] = realButtons;
+	g_iLastButtons[client] = buttons;
 	g_iLastTurnDir[client] = turnDir;
 
 	if(!updateThisTick)
@@ -81,7 +68,7 @@ void ShowKeys_Tick(int client, int buttons, float yaw)
 			continue;
 		}
 
-		ShowKeys_Send(messageTarget, realButtons, yawDiff);
+		ShowKeys_Send(messageTarget, buttons, yawDiff);
 	}
 
 	g_bUpdateDelayed[client] = false;

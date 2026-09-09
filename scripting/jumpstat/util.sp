@@ -1,7 +1,6 @@
 
 static bool lateLoad;
 bool g_bShavitCoreLoaded;
-bool g_bShavitReplayLoaded;
 bool g_bShavitZonesLoaded;
 
 static char jumpstatsVersion[32];
@@ -30,11 +29,10 @@ int g_iSpecList[MAXPLAYERS + 1][MAXPLAYERS + 1]; //First dimension is client ind
 int g_iSpecListCurrentFrame[MAXPLAYERS + 1];
 static int g_iCmdNum;
 
-void Init_Utils(bool late, bool shavitCore, bool shavitReplays, bool shavitZones, EngineVersion engine, char[] version)
+void Init_Utils(bool late, bool shavitCore, bool shavitZones, EngineVersion engine, char[] version)
 {
 	lateLoad = late;
 	g_bShavitCoreLoaded = shavitCore;
-	g_bShavitReplayLoaded = shavitReplays;
 	g_bShavitZonesLoaded = shavitZones;
 	engineVersion = engine;
 	tickrate = RoundToFloor(1 / GetTickInterval());

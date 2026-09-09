@@ -51,7 +51,6 @@ public Plugin myinfo =
 
 bool g_bLate = false;
 bool g_bShavitCore = false;
-bool g_bShavitReplay = false;
 bool g_bShavitZones = false;
 
 public void OnPluginStart()
@@ -59,14 +58,13 @@ public void OnPluginStart()
 
 	g_bShavitCore = LibraryExists("shavit");
 	g_bShavitZones = LibraryExists("shavit-zones");
-	g_bShavitReplay = LibraryExists("shavit-replay-playback");
 
 	if(g_bLate && g_bShavitCore)
 	{
 		Shavit_OnChatConfigLoaded();
 	}
 
-	Init_Utils(g_bLate, g_bShavitCore, g_bShavitReplay, g_bShavitZones, GetEngineVersion(), JS_VERSTION);
+	Init_Utils(g_bLate, g_bShavitCore, g_bShavitZones, GetEngineVersion(), JS_VERSTION);
 	Cvar_Start();
 	Commands_Start();
 	Settings_Start();
@@ -87,16 +85,14 @@ public void OnLibraryAdded(const char[] name)
 {
 	g_bShavitCore = LibraryExists("shavit");
 	g_bShavitZones = LibraryExists("shavit-zones");
-	g_bShavitReplay = LibraryExists("shavit-replay-playback");
-	Init_Utils(g_bLate, g_bShavitCore, g_bShavitReplay, g_bShavitZones, GetEngineVersion(), JS_VERSTION);
+	Init_Utils(g_bLate, g_bShavitCore, g_bShavitZones, GetEngineVersion(), JS_VERSTION);
 }
 
 public void OnLibraryRemoved(const char[] name)
 {
 	g_bShavitCore = LibraryExists("shavit");
 	g_bShavitZones = LibraryExists("shavit-zones");
-	g_bShavitReplay = LibraryExists("shavit-replay-playback");
-	Init_Utils(g_bLate, g_bShavitCore, g_bShavitReplay, g_bShavitZones, GetEngineVersion(), JS_VERSTION);
+	Init_Utils(g_bLate, g_bShavitCore, g_bShavitZones, GetEngineVersion(), JS_VERSTION);
 }
 
 public void BhopStat_TickForward(int client, int buttons, float vel[3], float angles[3], bool inbhop, float speed, float gain, float jss, float yawDiff)
@@ -104,6 +100,7 @@ public void BhopStat_TickForward(int client, int buttons, float vel[3], float an
 	Trainer_Tick(client, speed, inbhop, gain, jss);
 	PreStrafeTrainer_Tick(client, speed, inbhop);
 	Speedometer_Tick(client, speed);
+	ShowKeys_Tick(client, buttons, yawDiff);
 }
 
 public void BhopStat_FirstJumpForward(int client, int speed)
@@ -141,11 +138,6 @@ public Action OnPlayerRunCmd(int client, int& buttons, int& impulse, float vel[3
 	if(!IsFakeClient(client))
 	{
 		Menu_CheckEditMode(client, buttons, mouse);
-	}
-
-	if(IsPlayerAlive(client))
-	{
-		ShowKeys_Tick(client, buttons, angles[1]);
 	}
 	return Plugin_Continue;
 }
