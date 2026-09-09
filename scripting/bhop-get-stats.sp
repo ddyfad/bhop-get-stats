@@ -51,7 +51,6 @@ float g_fRawGain[MAXPLAYERS + 1];
 float g_fTrajectory[MAXPLAYERS + 1];
 float g_fTraveledDistance[MAXPLAYERS + 1][3];
 float g_fRunCmdVelVec[MAXPLAYERS + 1][3];
-float g_fLastRunCmdVelVec[MAXPLAYERS + 1][3];
 float g_fLastAngles[MAXPLAYERS + 1][3];
 float g_fAvgDiffFromPerf[MAXPLAYERS + 1];
 float g_fAvgAbsoluteJss[MAXPLAYERS + 1];
@@ -60,6 +59,9 @@ float g_fLastJumpPosition[MAXPLAYERS + 1][3];
 float g_fLastVeer[MAXPLAYERS + 1];
 float g_fTickrate = 0.01;
 float g_fJumpPeak[MAXPLAYERS + 1];
+
+ArrayList g_hReplayFrames[MAXPLAYERS + 1];
+int g_iReplayFrame[MAXPLAYERS + 1];
 
 GlobalForward FirstJumpStatsForward;
 GlobalForward JumpStatsForward;
@@ -134,6 +136,59 @@ public void OnClientPutInServer(int client)
 	g_iStrafeCount[client] = 0;
 	g_iCmdNum[client] = 0;
 	SDKHook(client, SDKHook_Touch, OnTouch);
+
+	if(IsShavitReplayBot(client))
+	{
+		Bgs_LoadReplayFrames(client);
+	}
+}
+
+public void OnClientDisconnect(int client)
+{
+	delete g_hReplayFrames[client];
+}
+
+public void Shavit_OnReplayStart(int ent, int type, bool delay_elapsed)
+{
+	if(ent < 1 || ent > MaxClients)
+	{
+		return;
+	}
+
+	Bgs_LoadReplayFrames(ent);
+	Bgs_ResetJumpState(ent);
+	g_iTicksOnGround[ent] = 0;
+}
+
+public void Shavit_OnReplayEnd(int ent, int type, bool actually_finished)
+{
+	if(ent < 1 || ent > MaxClients)
+	{
+		return;
+	}
+
+	delete g_hReplayFrames[ent];
+}
+
+void Bgs_LoadReplayFrames(int client)
+{
+	delete g_hReplayFrames[client];
+	g_iReplayFrame[client] = Shavit_GetReplayBotCurrentFrame(client);
+
+	ArrayList frames = Shavit_GetReplayFrames(Shavit_GetReplayBotStyle(client), Shavit_GetReplayBotTrack(client), true);
+	if(frames == null)
+	{
+		return;
+	}
+
+	int cacheLength = Shavit_GetReplayCacheFrameCount(client) + Shavit_GetReplayCachePreFrames(client) + Shavit_GetReplayCachePostFrames(client);
+	if(frames.Length != cacheLength || frames.BlockSize < 8)
+	{
+		delete frames;
+		return;
+	}
+
+	g_hReplayFrames[client] = frames;
 }
 
 public Action Shavit_OnTeleport(int client, int index, int target)
@@ -187,24 +242,20 @@ public void OnPlayerRunCmdPre(int client, int buttons, int impulse, const float 
 		return;
 	}
 
-	g_fLastRunCmdVelVec[client] = g_fRunCmdVelVec[client];
-	GetEntPropVector(client, Prop_Data, "m_vecVelocity", g_fRunCmdVelVec[client]);
-	
-
-	int realButtons = buttons;
-	int realFlags = GetEntityFlags(client);
-
 	if(IsShavitReplayBot(client))
 	{
-		float yawDiff;
-		realButtons = Shavit_GetReplayButtons(client, yawDiff);
-		realFlags = Shavit_GetReplayEntityFlags(client);
+		return;
 	}
 
-	Bgs_ProcessRunCmd(client, realButtons, vel, angles, realFlags, GetEntityMoveType(client));
+	GetEntPropVector(client, Prop_Data, "m_vecVelocity", g_fRunCmdVelVec[client]);
+
+	float origin[3];
+	GetClientAbsOrigin(client, origin);
+
+	Bgs_ProcessRunCmd(client, buttons, GetEntityFlags(client), GetEntityMoveType(client), origin);
 }
 
-public void Bgs_ProcessRunCmd(int client, int buttons, const float vel[3], const float angles[3], int flags, MoveType movetype)
+void Bgs_ProcessRunCmd(int client, int buttons, int flags, MoveType movetype, const float origin[3])
 {
 	//the player jump hook doesnt function on bots, so we use this to call it ourselves
 	bool isReplayBot = IsShavitReplayBot(client);
@@ -216,19 +267,7 @@ public void Bgs_ProcessRunCmd(int client, int buttons, const float vel[3], const
 		{
 			if(g_iTicksOnGround[client] == BHOP_FRAMES)
 			{
-				g_iJump[client] = 0;
-				g_iStrafeTick[client] = 0;
-				g_iSyncedTick[client] = 0;
-				g_fRawGain[client] = 0.0;
-				g_fTrajectory[client] = 0.0;
-				g_iStrafeCount[client] = 0;
-				g_fTraveledDistance[client] = NULL_VECTOR;
-				g_iCmdNum[client] = 0;
-				g_iYawwingTick[client] = 0;
-				g_bNoPress[client] = false;
-				g_bOverlap[client] = false;
-				g_bSawPress[client] = false;
-				g_bSawTurn[client] = false;
+				Bgs_ResetJumpState(client);
 			}
 			return;
 		}
@@ -241,10 +280,9 @@ public void Bgs_ProcessRunCmd(int client, int buttons, const float vel[3], const
 			}
 
 			g_iTicksOnGround[client] = 0;
-			float currpos[3];
-			GetClientAbsOrigin(client, currpos); //player landed, mustve jumped right?, calc veer
-			float xAxisVeer = FloatAbs(currpos[0] - g_fLastJumpPosition[client][0]);
-			float yAxisVeer = FloatAbs(currpos[1] - g_fLastJumpPosition[client][1]);
+			//player landed, mustve jumped right?, calc veer
+			float xAxisVeer = FloatAbs(origin[0] - g_fLastJumpPosition[client][0]);
+			float yAxisVeer = FloatAbs(origin[1] - g_fLastJumpPosition[client][1]);
 			g_fLastVeer[client] = xAxisVeer >= yAxisVeer ? yAxisVeer:xAxisVeer; //something about this wrong, kinda close to distbug but not fully, might need to wait till post
 		}
 	}
@@ -264,6 +302,93 @@ public void Bgs_ProcessRunCmd(int client, int buttons, const float vel[3], const
 	}
 }
 
+void Bgs_ResetJumpState(int client)
+{
+	g_iJump[client] = 0;
+	g_iStrafeTick[client] = 0;
+	g_iSyncedTick[client] = 0;
+	g_fRawGain[client] = 0.0;
+	g_fTrajectory[client] = 0.0;
+	g_iStrafeCount[client] = 0;
+	g_fTraveledDistance[client] = NULL_VECTOR;
+	g_iCmdNum[client] = 0;
+	g_iYawwingTick[client] = 0;
+	g_bNoPress[client] = false;
+	g_bOverlap[client] = false;
+	g_bSawPress[client] = false;
+	g_bSawTurn[client] = false;
+}
+
+void Bgs_ProcessReplayFrames(int client)
+{
+	ArrayList frames = g_hReplayFrames[client];
+	if(frames == null)
+	{
+		return;
+	}
+
+	int current = Shavit_GetReplayBotCurrentFrame(client);
+	int last = g_iReplayFrame[client];
+	g_iReplayFrame[client] = current;
+
+	if(current < last || current - last > 2)
+	{
+		Bgs_ResetJumpState(client);
+		g_iTicksOnGround[client] = 0;
+		return;
+	}
+
+	for(int frame = last + 1; frame <= current && frame < frames.Length; frame++)
+	{
+		Bgs_ProcessReplayFrame(client, frames, frame);
+	}
+}
+
+void Bgs_ProcessReplayFrame(int client, ArrayList frames, int index)
+{
+	frame_t frame;
+	frames.GetArray(index, frame, frames.BlockSize);
+
+	frame_t prev;
+	prev = frame;
+	if(index >= 1)
+	{
+		frames.GetArray(index - 1, prev, 5);
+	}
+
+	float velocity[3];
+	if(index >= 2)
+	{
+		float prevPrevPos[3];
+		frames.GetArray(index - 2, prevPrevPos, 3);
+		SubtractVectors(prev.pos, prevPrevPos, velocity);
+		ScaleVector(velocity, g_fTickrate);
+	}
+
+	float vel[3];
+	if(frames.BlockSize >= 10)
+	{
+		int ivel[2];
+		UnpackSignedShorts(frame.vel, ivel);
+		vel[0] = float(ivel[0]);
+		vel[1] = float(ivel[1]);
+	}
+	else
+	{
+		if (frame.buttons & IN_FORWARD)   vel[0] = 400.0;
+		if (frame.buttons & IN_BACK)      vel[0] -= 400.0;
+		if (frame.buttons & IN_MOVERIGHT) vel[1] = 400.0;
+		if (frame.buttons & IN_MOVELEFT)  vel[1] -= 400.0;
+	}
+
+	float angles[3];
+	angles[0] = frame.ang[0];
+	angles[1] = frame.ang[1];
+
+	Bgs_ProcessRunCmd(client, frame.buttons, frame.flags, frame.mt, frame.pos);
+	Bgs_ProcessPostRunCmd(client, frame.buttons, NormalizeAngle(frame.ang[1] - prev.ang[1]), vel, angles, velocity, frame.pos, 1.0, 0.0, false);
+}
+
 
 public void OnPlayerRunCmdPost(int client, int buttons, int impulse, const float vel[3], const float angles[3])
 {
@@ -272,43 +397,28 @@ public void OnPlayerRunCmdPost(int client, int buttons, int impulse, const float
 		return;
 	}
 
-	//All differences between stats on a real player and a replay bot should be handled here
-
-	int realButtons = buttons;
-	float realAngles[3];
-	realAngles = angles;
-	float yawDiff = NormalizeAngle(angles[YAW] - g_fLastAngles[client][YAW]);
-
-	float realVel[3] = {0.0, ...};
-
 	if(IsShavitReplayBot(client))
 	{
-		realButtons = Shavit_GetReplayButtons(client, yawDiff);
-
-		//current version of replays does not have vel[3] cached, i'm not sure if this is fully accurate but it should be
-		if (buttons & IN_FORWARD)   realVel[0] = 400.0;
-		if (buttons & IN_BACK)      realVel[0] -= 400.0;
-		if (buttons & IN_MOVERIGHT) realVel[1] = 400.0;
-		if (buttons & IN_MOVELEFT)  realVel[1] -= 400.0;
-	}
-	else
-	{
-		realVel = vel;
+		Bgs_ProcessReplayFrames(client);
+		return;
 	}
 
-	Bgs_ProcessPostRunCmd(client, realButtons, yawDiff, realVel, realAngles, IsShavitReplayBot(client) ? g_fLastRunCmdVelVec[client] : g_fRunCmdVelVec[client]);
+	float yawDiff = NormalizeAngle(angles[YAW] - g_fLastAngles[client][YAW]);
+
+	float origin[3];
+	GetClientAbsOrigin(client, origin);
+
+	Bgs_ProcessPostRunCmd(client, buttons, yawDiff, vel, angles, g_fRunCmdVelVec[client], origin,
+		GetEntPropFloat(client, Prop_Data, "m_flLaggedMovementValue"), GetEntPropFloat(client, Prop_Send, "m_flMaxspeed"), g_bTouchesWall[client]);
 }
 
-void Bgs_ProcessPostRunCmd(int client, int buttons, float yawDiff, const float vel[3], const float angles[3], float velocity[3])
+void Bgs_ProcessPostRunCmd(int client, int buttons, float yawDiff, const float vel[3], const float angles[3], const float velocity[3], const float origin[3], float speedmulti, float maxspeed, bool touchesWall)
 {
 	float jssThisTick = 0.0;
 	float gaincoeff = 0.0;
 
 	if(g_iTicksOnGround[client] == 0)
 	{
-
-		float origin[3];
-		GetClientAbsOrigin(client, origin);
 		if(origin[2] > g_fJumpPeak[client])
 		{
 			g_fJumpPeak[client] = origin[2];
@@ -395,8 +505,6 @@ void Bgs_ProcessPostRunCmd(int client, int buttons, float yawDiff, const float v
 
 		g_iStrafeTick[client]++;
 
-		float speedmulti = GetEntPropFloat(client, Prop_Data, "m_flLaggedMovementValue");
-
 		g_fTraveledDistance[client][0] += velocity[0] * g_fTickrate * speedmulti;
 		g_fTraveledDistance[client][1] += velocity[1] * g_fTickrate * speedmulti;
 
@@ -421,7 +529,6 @@ void Bgs_ProcessPostRunCmd(int client, int buttons, float yawDiff, const float v
 		}
 
 		float wishspeed = NormalizeVector(wishvel, wishdir);
-		float maxspeed = GetEntPropFloat(client, Prop_Send, "m_flMaxspeed");
 
 		if(maxspeed != 0.0 && wishspeed > maxspeed)
 		{
@@ -442,7 +549,7 @@ void Bgs_ProcessPostRunCmd(int client, int buttons, float yawDiff, const float v
 				g_iSyncedTick[client]++;
 			}
 
-			if(g_bTouchesWall[client] && gaincoeff > 0.5)
+			if(touchesWall && gaincoeff > 0.5)
 			{
 				gaincoeff -= 1.0;
 				gaincoeff = FloatAbs(gaincoeff);
@@ -463,20 +570,18 @@ void Bgs_ProcessPostRunCmd(int client, int buttons, float yawDiff, const float v
 	//run order RunCmd -> Jump Hook -> PostCmd | if you compare runcmd and postcmd gain calcs runcmd has 1 extra raw gain tick if you dont wait till here to finalize
 	if(g_bJumpedThisTick[client])
 	{
-		GetClientAbsOrigin(client, g_fLastJumpPosition[client]);
+		g_fLastJumpPosition[client] = origin;
 		g_bJumpedThisTick[client] = false;
 
 		if(g_iJump[client] == 1)
 		{
-			StartFirstJumpForward(client);
+			StartFirstJumpForward(client, velocity);
 		}
 		else
 		{
-			StartJumpForward(client);
+			StartJumpForward(client, velocity, origin);
 		}
 
-		float origin[3];
-		GetClientAbsOrigin(client, origin);
 		g_fRawGain[client] = 0.0;
 		g_iStrafeTick[client] = 0;
 		g_iSyncedTick[client] = 0;
@@ -501,28 +606,19 @@ void Bgs_ProcessPostRunCmd(int client, int buttons, float yawDiff, const float v
 
 
 //client, speed, fjt?, jumpoffangle?
-void StartFirstJumpForward(int client)
+void StartFirstJumpForward(int client, const float velocity[3])
 {
-	float realVelocity[3];
-	realVelocity = (IsShavitReplayBot(client) ? g_fLastRunCmdVelVec[client] : g_fRunCmdVelVec[client]);
-
 	Call_StartForward(FirstJumpStatsForward);
 	Call_PushCell(client);
-	Call_PushCell(RoundToFloor(GetSpeed(realVelocity, true)));
+	Call_PushCell(RoundToFloor(GetSpeed(velocity, true)));
 	Call_Finish();
 
 }
 
 //int client, int jump, int speed, int heightdelta, int strafecount, float gain, float sync, float eff, float yawwing
-void StartJumpForward(int client)
+void StartJumpForward(int client, const float velocity[3], const float origin[3])
 {
-	float realVelocity[3];
-	realVelocity = (IsShavitReplayBot(client) ? g_fLastRunCmdVelVec[client] : g_fRunCmdVelVec[client]);
-
-	int speed = RoundToFloor(GetSpeed(realVelocity, true));
-
-	float origin[3];
-	GetClientAbsOrigin(client, origin);
+	int speed = RoundToFloor(GetSpeed(velocity, true));
 
 	float coeffsum = g_fRawGain[client];
 	coeffsum /= g_iStrafeTick[client];
@@ -588,7 +684,7 @@ void StartTickForward(int client, float jssThisTick, float speed, float yawDiff,
 	Call_Finish();
 }
 
-float GetSpeed(float vel[3], bool twoD)
+float GetSpeed(const float vel[3], bool twoD)
 {
 	float velCopy[3];
 	velCopy = vel;
