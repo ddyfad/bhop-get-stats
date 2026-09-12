@@ -28,7 +28,7 @@
 #define SHOWKEYS_SIMPLE 1 << 27
 #define SHOWKEYS_UNRELIABLE 1 << 28
 #define PRESTRAFETRAINER_ENABLED 1 << 29
-//open slot 1 << 30
+#define SPEEDOMETER_SMALL_VELOCITY 1 << 30
 //open slot 1 << 31
 //open slot 1 << 32 -> must solve issues (or make sure there are none) with handling sign bit if this is used
 

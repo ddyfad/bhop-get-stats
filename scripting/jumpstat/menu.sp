@@ -302,6 +302,7 @@ void ShowSpeedSettingsMenu(int client)
 	SetMenuTitle(menu, "Speed Settings\n \n");
 	AddMenuItem(menu, "en", (g_iSettings[client][Bools] & SPEEDOMETER_ENABLED) ? "[X] Enabled":"[  ] Enabled");
 	AddMenuItem(menu, "enVelDiff", (g_iSettings[client][Bools] & SPEEDOMETER_VELOCITY_DIFF) ? "[X] Speed Difference":"[  ]Speed Difference");
+	AddMenuItem(menu, "smallVelocity", (g_iSettings[client][Bools] & SPEEDOMETER_SMALL_VELOCITY) ? "[X] Small Velocity":"[  ] Small Velocity");
 	DisplayMenu(menu, client, MENU_TIME_FOREVER);
 }
 
@@ -908,6 +909,10 @@ public int Speedometer_Select(Menu menu, MenuAction action, int client, int opti
 		if(StrEqual(info, "enVelDiff"))
 		{
 			g_iSettings[client][Bools] ^= SPEEDOMETER_VELOCITY_DIFF;
+		}
+		if(StrEqual(info, "smallVelocity"))
+		{
+			g_iSettings[client][Bools] ^= SPEEDOMETER_SMALL_VELOCITY;
 		}
 		BgsSetCookie(client, g_hSettings[Bools], g_iSettings[client][Bools]);
 		ShowSpeedSettingsMenu(client);

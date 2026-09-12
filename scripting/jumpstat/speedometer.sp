@@ -2,6 +2,7 @@
 
 static float g_fCurrentSpeed[MAXPLAYERS + 1];
 static float g_fTickSpeed[MAXPLAYERS + 1];
+static int g_iSpeedDirection[MAXPLAYERS + 1];
 static int g_iTickNumber;
 
 void Speedometer_Tick(int client, float speed)
@@ -42,6 +43,7 @@ void Speedometer_GameTick()
 		if(speedDelta > 0)
 		{
 			speedColorIdx = GainReallyGood;
+			g_iSpeedDirection[i] = 1;
 		}
 		else if (speedDelta == 0)
 		{
@@ -50,6 +52,7 @@ void Speedometer_GameTick()
 		else
 		{
 			speedColorIdx = GainReallyBad;
+			g_iSpeedDirection[i] = -1;
 		}
 
 		int speed = RoundToFloor(g_fCurrentSpeed[i]);
@@ -58,7 +61,21 @@ void Speedometer_GameTick()
 		{
 			int messageTarget = j == -1 ? i:g_iSpecList[i][j];
 
-			if(!(g_iSettings[messageTarget][Bools] & SPEEDOMETER_ENABLED) || !BgsIsValidPlayer(messageTarget))
+			bool speedometerEnabled = (g_iSettings[messageTarget][Bools] & SPEEDOMETER_ENABLED) != 0;
+			bool smallVelocity = (g_iSettings[messageTarget][Bools] & SPEEDOMETER_SMALL_VELOCITY) != 0;
+			if((!speedometerEnabled && !smallVelocity) || !BgsIsValidPlayer(messageTarget))
+			{
+				continue;
+			}
+
+			if(smallVelocity)
+			{
+				char smallMessage[16];
+				Format(smallMessage, sizeof(smallMessage), "%s%i", g_iSpeedDirection[i] < 0 ? "-":"+", speed);
+				DisplaySmallVelocity(messageTarget, smallMessage);
+			}
+
+			if(!speedometerEnabled)
 			{
 				continue;
 			}
@@ -97,4 +114,17 @@ void Speedometer_GameTick()
 
 		}
 	}
+}
+
+void DisplaySmallVelocity(int client, const char[] message)
+{
+	BfWrite center = view_as<BfWrite>(StartMessageOne("TextMsg", client, USERMSG_BLOCKHOOKS));
+	center.WriteByte(4);
+	center.WriteString(message);
+	center.WriteString("");
+	center.WriteString("");
+	center.WriteString("");
+	center.WriteString("");
+	center.WriteString("");
+	EndMessage();
 }
