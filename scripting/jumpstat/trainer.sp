@@ -182,11 +182,11 @@ void Trainer_VisualisationString(char[] buffer, int bufferSize, float percentage
 		{
 			if (remainder >= 0.5)
 			{
-				FormatEx(buffer, bufferSize, "%s⎹", buffer); //U+23B9
+				FormatEx(buffer, bufferSize, "%s\xE2\x96\x95", buffer); //u+2595
 			}
 			else
 			{
-				FormatEx(buffer, bufferSize, "%s⎸", buffer); //U+23B8
+				FormatEx(buffer, bufferSize, "%s\xE2\x96\x8F", buffer); //u+258f
 			}
 		}
 	}
