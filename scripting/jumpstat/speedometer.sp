@@ -1,4 +1,4 @@
-#define SPEED_UPDATE_INTERVAL 10
+#define SPEED_UPDATE_INTERVAL 5
 
 static float g_fCurrentSpeed[MAXPLAYERS + 1];
 static float g_fTickSpeed[MAXPLAYERS + 1];
@@ -110,7 +110,7 @@ void Speedometer_GameTick()
 				}
 			}
 
-			BgsDisplayHud(messageTarget, g_fCacheHudPositions[messageTarget][Speedometer], g_iBstatColors[g_iSettings[messageTarget][speedColorIdx]], 0.2, GetDynamicChannel(4), false, message);
+			BgsDisplayHud(messageTarget, g_fCacheHudPositions[messageTarget][Speedometer], g_iBstatColors[g_iSettings[messageTarget][speedColorIdx]], 0.15, GetDynamicChannel(4), false, message);
 
 		}
 	}
